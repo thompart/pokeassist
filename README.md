@@ -1,5 +1,31 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Supabase Setup
+
+This project uses Supabase for database management. To set up:
+
+1. Create a `.env.local` file in the root directory with your Supabase credentials:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+2. Get your Supabase URL and anon key from your Supabase project settings:
+   - Go to https://app.supabase.com
+   - Select your project
+   - Navigate to Settings > API
+   - Copy the "Project URL" and "anon public" key
+
+3. For Vercel deployment:
+   - Go to your Vercel project settings
+   - Navigate to Environment Variables
+   - Add the same `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` variables
+
+The Supabase client is available at `src/lib/supabase.ts` and can be imported like:
+```typescript
+import { supabase } from '@/lib/supabase'
+```
+
 ## Getting Started
 
 First, run the development server:
