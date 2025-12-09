@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useSearchParams } from 'next/navigation';
 
@@ -8,14 +8,14 @@ export default function Home() {
   const sessionId = searchParams.get('sessionId');
   const [player1, setPlayer1] = useState('');
   const [player2, setPlayer2] = useState('');
-  const [game, setGame] = useState('Scarlet');
+  const [location, setLocation] = useState('');
   const [savedId, setSavedId] = useState(sessionId || '');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const { data, error } = await supabase
-      .from('soul_links')
-      .insert({ player1_name: player1, player2_name: player2, game })
+      .from('sessions')
+      .insert({ player1_name: player1, player2_name: player2, location })
       .select('id')
       .single();
 
@@ -31,7 +31,7 @@ export default function Home() {
   const loadSession = async () => {
     if (sessionId) {
       const { data } = await supabase
-        .from('soul_links')
+        .from('sessions')
         .select('*')
         .eq('id', sessionId)
         .single();
@@ -39,18 +39,22 @@ export default function Home() {
       if (data) {
         setPlayer1(data.player1_name);
         setPlayer2(data.player2_name);
-        setGame(data.game);
+        setLocation(data.location);
       }
     }
   };
 
   // Load on mount if sessionId present
-  if (sessionId && !savedId) loadSession();
+  useEffect(() => {
+    if (sessionId && !savedId) {
+      loadSession();
+    }
+  }, [sessionId, savedId]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded shadow-md w-96">
-        <h1 className="text-2xl font-bold mb-4">Soul Link Setup</h1>
+        <h1 className="text-2xl font-bold mb-4">Soul Link Session</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="text"
@@ -68,15 +72,14 @@ export default function Home() {
             className="w-full p-2 border rounded"
             required
           />
-          <select
-            value={game}
-            onChange={(e) => setGame(e.target.value)}
+          <input
+            type="text"
+            placeholder="Current Location (e.g., Route 31)"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
             className="w-full p-2 border rounded"
-          >
-            <option value="Scarlet">Scarlet</option>
-            <option value="Violet">Violet</option>
-            <option value="Other">Other</option>
-          </select>
+            required
+          />
           <button type="submit" className="w-full bg-blue-500 text-white p-2 rounded">
             Save & Generate URL
           </button>
