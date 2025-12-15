@@ -48,11 +48,11 @@ const HGSS_CONFIG: GameConfig = {
   displayName: 'HeartGold & SoulSilver',
   
   assets: {
-    back: '/HGSS_Back.png',
-    objects: '/HGSS_Objects.png',
-    map: '/HGSS_Map.png',
-    hitmap: '/HGSS_Hitmap.png',
-    background: '/HGSS_JohtoKanto.jpg',
+    back: '/HGSS/HGSS_Back.png',
+    objects: '/HGSS/HGSS_Objects.png',
+    map: '/HGSS/HGSS_Map.png',
+    hitmap: '/HGSS/HGSS_Hitmap.png',
+    background: '/HGSS/HGSS_JohtoKanto.jpg',
   },
   
   dimensions: {

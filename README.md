@@ -393,6 +393,10 @@ pokeassist/
 - `highlightCanvasRef`: Canvas for highlight overlay
 - `mapBackCanvasRef`, `mapObjectsCanvasRef`, `mapMapCanvasRef`: Map layer canvases
 
+**Key Data Attributes**:
+- `data-parallax-container`: The outer container for parallax calculations
+- `data-aspect-container`: The aspect ratio container used for hitmap coordinate calculations (critical for fullscreen support)
+
 **Key Functions**:
 - `loadData()`: Fetches session, run, and pairs
 - `createPair()`, `updatePair()`, `deletePair()`: CRUD operations with optimistic updates
@@ -488,17 +492,29 @@ Each game configuration includes:
 1. `HGSS_Hitmap.png` is loaded into a hidden canvas
 2. On mouse move, calculate pixel coordinates accounting for `object-contain` scaling
 3. Sample pixel color from hitmap canvas
-4. Look up color in `LOCATION_MAP` constant
+4. Look up color in `LOCATION_MAP` constant (or game config's `locationMap`)
 5. If match found, update `hoveredLocation` and `hoveredColor`
 
 **Key Constants**:
-- `LOCATION_MAP`: Object mapping hex colors (e.g., "#FF0000") to location names
+- Location maps are defined in game configurations (see `src/lib/gameConfig.ts`)
+- Each game has a `locationMap` object mapping hex colors (e.g., "#FF0000") to location names
 - Currently maps ~50 locations for HeartGold/SoulSilver
 
 **Edge Cases**:
 - Black (#000000) pixels are ignored (background)
 - Transparent/low-alpha pixels are ignored
 - Pixel color matching uses ±2 tolerance for anti-aliasing
+
+**Important Implementation Detail - Coordinate Calculation**:
+- The hitmap detection uses the **aspect ratio container's bounding rect** (`data-aspect-container`), not the image element's rect
+- This is critical because `object-contain` causes the image to be letterboxed/pillarboxed within its container
+- Using the container ensures consistent coordinate calculations across all window sizes, including fullscreen
+- The container maintains a fixed aspect ratio via CSS, while the image scales within it
+- Coordinates are calculated by:
+  1. Getting mouse position relative to the container
+  2. Determining which dimension (width/height) constrains the image scale
+  3. Calculating the offset where the image starts within the container (for centering)
+  4. Converting mouse coordinates to pixel coordinates using the calculated scale
 
 ### Highlight Overlay System
 
@@ -759,6 +775,27 @@ When creating or updating location maps:
 - Parallax uses hardware-accelerated transforms
 - Map images are game-specific (dimensions vary by game) but kept small for fast loading
 - Game configuration is loaded once per session and cached in component state
+
+### Troubleshooting: Hitmap Detection at Different Window Sizes
+
+**Issue**: Hitmap detection may fail at certain window sizes (especially fullscreen) if coordinate calculations use the wrong reference element.
+
+**Root Cause**: When using `object-contain` CSS, the image element's bounding rect doesn't match the container's coordinate space. The image may be letterboxed/pillarboxed within the container, causing coordinate mismatches.
+
+**Solution**: The hitmap detection system uses the aspect ratio container (`data-aspect-container`) instead of the image element for coordinate calculations. This ensures consistent behavior across all window sizes because:
+
+1. The container maintains a fixed aspect ratio via CSS `aspectRatio` property
+2. The image uses `object-contain`, which means it may not fill the entire container
+3. Using the container's bounding rect accounts for letterboxing/pillarboxing
+4. The scale calculation correctly accounts for which dimension (width/height) constrains the image
+
+**Implementation Details**:
+- The aspect ratio container has `data-aspect-container` attribute for reliable selection
+- Coordinate calculations use `document.querySelector('[data-aspect-container]').getBoundingClientRect()`
+- Scale is calculated based on which dimension constrains the image (wider vs taller aspect ratios)
+- Offsets are calculated to account for centering when the image doesn't fill the container
+
+**Important**: When modifying hitmap detection code, always use `document.querySelector('[data-aspect-container]')` to get the coordinate reference, not the image element's bounding rect. This ensures consistent behavior at all window sizes including fullscreen.
 
 ### Future Enhancements
 

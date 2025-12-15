@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* Pokemon DP Pro font for location tooltips */
+@font-face {
+  font-family: 'Pokemon DP Pro';
+  src: url('/fonts/pokemon-dp-pro.otf.woff2') format('woff2'),
+       url('/fonts/pokemon-dp-pro.ttf') format('truetype'),
+       url('/fonts/pokemon-dp-pro.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --background: #f8fafc;
   --foreground: #1e293b;
@@ -53,4 +64,9 @@ body {
     transform: translate(-50%, -50%) scale(1.3);
     opacity: 0.3;
   }
+}
+
+/* Pokemon font for location tooltip */
+.location-tooltip {
+  font-family: 'Pokemon DP Pro', monospace;
 }

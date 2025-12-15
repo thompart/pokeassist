@@ -937,9 +937,74 @@ export default function RunPage() {
       </div>
 
       {/* Location Tooltip */}
+      {/* 
+        STYLING OPTIONS REFERENCE:
+        
+        Background Colors & Opacity:
+        - bg-black/80 (current) - dark with 80% opacity
+        - bg-black/90 - darker, more opaque
+        - bg-gray-900/90 - slightly lighter dark
+        - bg-blue-900/80 - dark blue tint
+        - bg-indigo-900/80 - dark indigo tint
+        - bg-slate-900/85 - dark slate
+        
+        Backdrop Blur:
+        - backdrop-blur-md (current) - medium blur
+        - backdrop-blur-sm - subtle blur
+        - backdrop-blur-lg - strong blur
+        - backdrop-blur-xl - very strong blur
+        - backdrop-blur-none - no blur
+        
+        Border Radius:
+        - rounded-lg (current) - medium rounded
+        - rounded-md - less rounded
+        - rounded-xl - more rounded
+        - rounded-2xl - very rounded
+        - rounded-full - pill shape
+        - rounded-none - sharp corners
+        
+        Text Size:
+        - text-base (current) - normal size
+        - text-sm - smaller
+        - text-lg - larger
+        - text-xl - extra large
+        - text-2xl - very large
+        
+        Shadows:
+        - shadow-2xl (current) - large shadow
+        - shadow-sm - subtle shadow
+        - shadow-md - medium shadow
+        - shadow-lg - large shadow
+        - shadow-xl - extra large shadow
+        - shadow-none - no shadow
+        
+        Borders:
+        - border border-white/20 (current) - white border, 20% opacity
+        - border-2 border-white/30 - thicker, more visible
+        - border border-blue-400/50 - blue border
+        - border border-yellow-400/50 - yellow border
+        - border-2 border-white - solid white border
+        - border-none - no border
+        
+        Padding:
+        - px-4 py-2 (current) - medium padding
+        - px-3 py-1.5 - less padding
+        - px-5 py-3 - more padding
+        - px-6 py-4 - extra padding
+        
+        Example Styles:
+        
+        Minimal: "bg-white/90 backdrop-blur-sm text-gray-900 px-3 py-1.5 rounded-md shadow-md border border-gray-300"
+        
+        Retro/Pixel: "bg-gray-800 backdrop-blur-none text-yellow-400 px-4 py-2 rounded-none shadow-lg border-2 border-yellow-500"
+        
+        Modern Glass: "bg-white/10 backdrop-blur-xl text-white px-5 py-3 rounded-xl shadow-2xl border border-white/30"
+        
+        Bold: "bg-indigo-600 backdrop-blur-md text-white px-5 py-3 rounded-lg shadow-2xl border-2 border-indigo-400"
+      */}
       {hoveredLocation && (
         <div
-          className="fixed z-40 bg-black/80 backdrop-blur-md text-white px-4 py-2 rounded-lg text-sm font-semibold pointer-events-none shadow-2xl border border-white/20"
+          className="location-tooltip fixed z-40 bg-slate-900/50 backdrop-blur-sm text-white px-2 py-0.5 rounded-md text-xl font-semibold pointer-events-none shadow-2xl border border-white/40"
           style={{
             left: `${tooltipPosition.x}px`,
             top: `${tooltipPosition.y}px`,
