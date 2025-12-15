@@ -1,0 +1,91 @@
+const LOCATION_COLORS = [
+  '#FF0000', // Safari Zone Gate
+  '#00FF00', // Route 48
+  '#0000FF', // Route 47
+  '#FFFF00', // Cianwood City
+  '#FF00FF', // Route 41
+  '#00FFFF', // Whirl Islands
+  '#FF8000', // Route 40
+  '#8000FF', // Battle Frontier
+  '#FF0080', // Olivine City
+  '#0080FF', // Lighthouse
+  '#80FF00', // Route 39
+  '#FF8080', // Route 38
+  '#80FF80', // National Park
+  '#8080FF', // Ecruteak City
+  '#FFFF80', // Burned Tower
+  '#FF80FF', // Bell Tower
+  '#80FFFF', // Route 37
+  '#FF0040', // Route 35
+  '#4000FF', // Violet City
+  '#0040FF', // Sprout Tower
+  '#00FF40', // Ruins of Alph
+  '#40FF00', // Goldenrod City
+  '#FF4000', // Route 34
+  '#FF0040', // Ilex Forest
+  '#800000', // Azalea Town
+  '#008000', // Slowpoke Well
+  '#000080', // Route 33
+  '#808000', // Union Cave
+  '#800080', // Route 32
+  '#008080', // Route 42
+  '#C00000', // Mt. Mortar
+  '#00C000', // Mahogany Town
+  '#0000C0', // Route 43
+  '#C0C000', // Lake of Rage
+  '#C000C0', // Route 44
+  '#00C0C0', // Blackthorn City
+  '#C08000', // Ice Path
+  '#8000C0', // Dark Cave
+  '#C00080', // Route 45
+  '#0080C0', // Route 31
+  '#80C000', // Route 30
+  '#C0C080', // Cherrygrove City
+  '#C080C0', // Route 29
+  '#80C0C0', // Route 46
+  '#FF2000', // New Bark Town
+  '#20FF00', // Route 27
+  '#0020FF', // Tohjo Falls
+  '#FF0020', // Route 36
+  '#2000FF', // Blue Purple 2
+  '#FF2000', // Orange Red 2
+  '#A00000', // Dark Red 2
+  '#00A000', // Dark Green 2
+  '#0000A0', // Dark Blue 2
+  '#A0A000', // Yellow 3
+  '#A000A0', // Magenta 3
+  '#00A0A0', // Cyan 3
+  '#A06000', // Brown 1
+  '#6000A0', // Purple 4
+  '#A00060', // Pink 3
+  '#0060A0', // Blue 5
+  '#60A000', // Green 4
+  '#E00000', // Bright Red 1
+  '#00E000', // Bright Green 1
+  '#0000E0', // Bright Blue 1
+  '#E0E000', // Bright Yellow 1
+  '#E000E0', // Bright Magenta 1
+  '#00E0E0', // Bright Cyan 1
+  '#E08000', // Bright Orange 1
+  '#8000E0', // Bright Purple 1
+  '#E00080', // Bright Pink 1
+  '#0080E0', // Bright Blue 2
+  '#80E000', // Bright Lime 1
+  '#B00000', // Red 3
+  '#00B000', // Green 5
+  '#0000B0', // Blue 6
+  '#B0B000', // Yellow 4
+  '#B000B0', // Magenta 4
+  '#00B0B0', // Cyan 4
+  '#B05000', // Brown 2
+  '#5000B0', // Purple 5
+  '#B00050', // Pink 4
+  '#0050B0', // Blue 7
+  '#50B000', // Green 6
+  '#D00000', // Red 4
+  '#00D000', // Green 7
+  '#0000D0', // Blue 8
+  '#D0D000', // Yellow 5
+  '#D000D0', // Magenta 5
+  '#00D0D0', // Cyan 5
+];
