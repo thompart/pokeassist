@@ -4,7 +4,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import type { Session, Run, Pair } from '@/types/database';
 import PokemonSelector from '@/components/PokemonSelector';
+import LocationDetailWindow from '@/components/LocationDetailWindow';
 import { getGameConfig, type GameConfig } from '@/lib/gameConfig';
+import { getAllEncounters } from '@/lib/encounters';
+import { Settings, Plus, Box, Sun, Moon } from 'lucide-react';
 
 // Helper to convert RGB to hex
 function rgbToHex(r: number, g: number, b: number, a?: number): string {
@@ -39,8 +42,7 @@ export default function RunPage() {
   const [boxDragOffset, setBoxDragOffset] = useState({ x: 0, y: 0 });
   const [pairFormData, setPairFormData] = useState({
     location: '',
-    pokemon1: '',
-    pokemon2: '',
+    pokemon: [] as string[],
   });
   const [editingPair, setEditingPair] = useState<Pair | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -48,7 +50,12 @@ export default function RunPage() {
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [showSettings, setShowSettings] = useState(false);
-  const [parallaxEnabled, setParallaxEnabled] = useState(true);
+  const [parallaxEnabled, setParallaxEnabled] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
+  const [showLocationDetail, setShowLocationDetail] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+  const [isEncounterDropdownOpen, setIsEncounterDropdownOpen] = useState(false);
+  const encounterDropdownRef = useRef<HTMLDivElement>(null);
   const hitmapCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const hitmapImageRef = useRef<HTMLImageElement | null>(null);
   const highlightCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -65,8 +72,6 @@ export default function RunPage() {
   // Load hitmap and map images into canvases
   useEffect(() => {
     if (!gameConfig) return;
-    
-    console.log('Loading images...');
     
     const { assets, dimensions } = gameConfig;
     
@@ -94,8 +99,6 @@ export default function RunPage() {
     const checkAllLoaded = () => {
       loadedCount++;
       if (loadedCount === totalImages) {
-        console.log('All images loaded');
-        
         // Create canvases for map layers
         const backCanvas = document.createElement('canvas');
         backCanvas.width = dimensions.width;
@@ -412,7 +415,6 @@ export default function RunPage() {
       // Sample pixel from hitmap
       const ctx = hitmapCanvasRef.current.getContext('2d', { willReadFrequently: true });
       if (!ctx) {
-        console.log('Could not get canvas context');
         return;
       }
 
@@ -442,10 +444,6 @@ export default function RunPage() {
           // Not a mapped location - always clear
           setHoveredLocation(null);
           setHoveredColor(null);
-          // Debug logging
-          if (Math.random() < 0.05) {
-            console.log('Unmapped color:', hex, 'RGB:', r, g, b, 'Alpha:', a, 'Pixel:', clampedX, clampedY);
-          }
         }
       } catch (error) {
         console.error('Error reading pixel:', error);
@@ -471,25 +469,29 @@ export default function RunPage() {
     }
   }, [showSettings]);
 
+  // Close encounter dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        encounterDropdownRef.current &&
+        !encounterDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsEncounterDropdownOpen(false);
+      }
+    }
+    
+    if (isEncounterDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isEncounterDropdownOpen]);
+
   // Handle click on location
   const handleMapClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log('Map clicked! Hovered location:', hoveredLocation);
     if (hoveredLocation) {
-      setPairFormData({
-        location: hoveredLocation,
-        pokemon1: '',
-        pokemon2: '',
-      });
-      setEditingPair(null);
-      setShowAddPairModal(true);
-      setActiveTab('add-pair');
-      // Position modal near click, but keep it on screen
-      const modalX = Math.max(20, Math.min(e.clientX - 150, window.innerWidth - 400));
-      const modalY = Math.max(80, Math.min(e.clientY - 100, window.innerHeight - 400));
-      setModalPosition({ x: modalX, y: modalY });
-    } else {
-      console.log('No location hovered when clicked');
+      setSelectedLocation(hoveredLocation);
+      setShowLocationDetail(true);
     }
   };
 
@@ -592,23 +594,71 @@ export default function RunPage() {
     }
   }, [isDragging, dragOffset, isDraggingBox, boxDragOffset]);
 
+  const handleAddPairFromLocation = async (location: string, pokemon: string[]) => {
+    if (!location) {
+      alert('Location is required');
+      return;
+    }
+
+    if (!session) return;
+
+    // Build player names object dynamically
+    const playerData: any = {
+      run_id: runId,
+      location: location,
+      pokemon: pokemon,
+    };
+
+    // Add player names
+    session.player1_name && (playerData.player1_name = session.player1_name);
+    session.player2_name && (playerData.player2_name = session.player2_name);
+    session.player3_name && (playerData.player3_name = session.player3_name);
+    session.player4_name && (playerData.player4_name = session.player4_name);
+
+    // Legacy support: also set pokemon1 and pokemon2 for backward compatibility
+    playerData.pokemon1 = pokemon[0] || null;
+    playerData.pokemon2 = pokemon[1] || null;
+
+    const { data, error } = await supabase.from('pairs').insert(playerData).select().single();
+
+    if (error) {
+      alert('Error creating encounter: ' + error.message);
+      return;
+    }
+
+    // Add to local state
+    setPairs([...pairs, data]);
+  };
+
   const createPair = async () => {
     if (!pairFormData.location) {
       alert('Location is required');
       return;
     }
 
-    const { data, error } = await supabase.from('pairs').insert({
+    if (!session) return;
+
+    // Build player names object dynamically
+    const playerData: any = {
       run_id: runId,
-      player1_name: session!.player1_name,
-      player2_name: session!.player2_name,
       location: pairFormData.location,
-      pokemon1: pairFormData.pokemon1 || null,
-      pokemon2: pairFormData.pokemon2 || null,
-    }).select().single();
+      pokemon: pairFormData.pokemon,
+    };
+
+    // Add player names
+    session.player1_name && (playerData.player1_name = session.player1_name);
+    session.player2_name && (playerData.player2_name = session.player2_name);
+    session.player3_name && (playerData.player3_name = session.player3_name);
+    session.player4_name && (playerData.player4_name = session.player4_name);
+
+    // Legacy support: also set pokemon1 and pokemon2 for backward compatibility
+    playerData.pokemon1 = pairFormData.pokemon[0] || null;
+    playerData.pokemon2 = pairFormData.pokemon[1] || null;
+
+    const { data, error } = await supabase.from('pairs').insert(playerData).select().single();
 
     if (error) {
-      alert('Error creating pair: ' + error.message);
+      alert('Error creating encounter: ' + error.message);
       return;
     }
 
@@ -617,7 +667,7 @@ export default function RunPage() {
       setPairs([...pairs, data]);
     }
 
-    setPairFormData({ location: '', pokemon1: '', pokemon2: '' });
+    setPairFormData({ location: '', pokemon: [] });
     setShowAddPairModal(false);
     setActiveTab(null);
   };
@@ -628,19 +678,26 @@ export default function RunPage() {
       return;
     }
 
+    if (!session) return;
+
+    const updateData: any = {
+      location: pairFormData.location,
+      pokemon: pairFormData.pokemon,
+    };
+
+    // Legacy support: also set pokemon1 and pokemon2 for backward compatibility
+    updateData.pokemon1 = pairFormData.pokemon[0] || null;
+    updateData.pokemon2 = pairFormData.pokemon[1] || null;
+
     const { data, error } = await supabase
       .from('pairs')
-      .update({
-        location: pairFormData.location,
-        pokemon1: pairFormData.pokemon1 || null,
-        pokemon2: pairFormData.pokemon2 || null,
-      })
+      .update(updateData)
       .eq('id', editingPair.id)
       .select()
       .single();
 
     if (error) {
-      alert('Error updating pair: ' + error.message);
+      alert('Error updating encounter: ' + error.message);
       return;
     }
 
@@ -650,7 +707,7 @@ export default function RunPage() {
     }
 
     setEditingPair(null);
-    setPairFormData({ location: '', pokemon1: '', pokemon2: '' });
+    setPairFormData({ location: '', pokemon: [] });
     setShowAddPairModal(false);
     setActiveTab(null);
   };
@@ -671,10 +728,13 @@ export default function RunPage() {
 
   const openEditPair = (pair: Pair) => {
     setEditingPair(pair);
+    // Use pokemon array if available, otherwise fall back to pokemon1/pokemon2
+    const pokemonArray = pair.pokemon && Array.isArray(pair.pokemon) 
+      ? pair.pokemon 
+      : [pair.pokemon1 || '', pair.pokemon2 || ''].filter(p => p);
     setPairFormData({
       location: pair.location,
-      pokemon1: pair.pokemon1 || '',
-      pokemon2: pair.pokemon2 || '',
+      pokemon: pokemonArray,
     });
     setShowAddPairModal(true);
     setActiveTab('add-pair');
@@ -685,7 +745,7 @@ export default function RunPage() {
     if (tab === 'add-pair') {
       setShowAddPairModal(true);
       setEditingPair(null);
-      setPairFormData({ location: '', pokemon1: '', pokemon2: '' });
+      setPairFormData({ location: '', pokemon: [] });
     } else {
       setShowAddPairModal(false);
     }
@@ -752,7 +812,7 @@ export default function RunPage() {
   const backgroundScale = parallaxEnabled ? gameConfig.parallax.background.scale : 1.1;
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className={`min-h-screen relative overflow-hidden ${darkMode ? '' : 'bg-slate-50'}`}>
       {/* Background Image with Blur and Reverse Parallax */}
       <div
         className="fixed inset-0 z-0"
@@ -761,90 +821,153 @@ export default function RunPage() {
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
-          filter: 'blur(8px)',
+          filter: darkMode ? 'blur(8px)' : 'blur(4px) brightness(1.2)',
           transform: `translate3d(${backgroundOffset.x}px, ${backgroundOffset.y}px, 0) scale(${backgroundScale})`,
           transformOrigin: 'center center',
           transition: parallaxEnabled ? 'transform 0.1s ease-out' : 'transform 0.3s ease-out',
         }}
       />
       {/* Dark overlay for depth */}
-      <div className="fixed inset-0 z-0 bg-black/30" />
+      <div className={`fixed inset-0 z-0 ${darkMode ? 'bg-black/30' : 'bg-white/20'}`} />
       {/* Top Bar with Tabs */}
-      <div className="absolute top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-md border-b border-white/20 shadow-lg">
+      <div className={`absolute top-0 left-0 right-0 z-50 backdrop-blur-md border-b shadow-lg ${
+        darkMode 
+          ? 'bg-black/50 border-white/20' 
+          : 'bg-white/80 border-slate-300/50'
+      }`}>
         <div className="flex items-center justify-between p-4">
           <div className="flex gap-3">
             <button
               onClick={() => handleTabClick('add-pair')}
-              className={`px-6 py-2.5 rounded-xl font-semibold transition-all ${
-                activeTab === 'add-pair'
-                  ? 'bg-white/20 text-white shadow-lg'
-                  : 'bg-white/10 text-white/80 hover:bg-white/20'
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition-all ${
+                darkMode
+                  ? activeTab === 'add-pair'
+                    ? 'bg-white/20 text-white shadow-lg'
+                    : 'bg-white/10 text-white/80 hover:bg-white/20'
+                  : activeTab === 'add-pair'
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
               }`}
             >
-              Add Pair
+              <Plus size={18} />
+              Add Encounter
             </button>
             <button
               onClick={() => handleTabClick('box')}
-              className={`px-6 py-2.5 rounded-xl font-semibold transition-all ${
-                activeTab === 'box'
-                  ? 'bg-white/20 text-white shadow-lg'
-                  : 'bg-white/10 text-white/80 hover:bg-white/20'
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition-all ${
+                darkMode
+                  ? activeTab === 'box'
+                    ? 'bg-white/20 text-white shadow-lg'
+                    : 'bg-white/10 text-white/80 hover:bg-white/20'
+                  : activeTab === 'box'
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
               }`}
             >
+              <Box size={18} />
               Box ({pairs.length})
             </button>
           </div>
-          <div className="text-white/90 font-medium">
-            {session.player1_name} & {session.player2_name} - Run {run.run_number}
-          </div>
-          <div className="relative" data-settings-menu>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowSettings(!showSettings);
-              }}
-              className="bg-white/10 text-white/80 hover:bg-white/20 px-4 py-2 rounded-xl font-semibold transition-all"
-            >
-              Settings
-            </button>
-            {showSettings && (
-              <div 
-                className="absolute top-full right-0 mt-2 bg-black/80 backdrop-blur-md rounded-xl shadow-2xl border border-white/20 p-4 min-w-[200px] z-50"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h3 className="text-white font-semibold mb-3">Settings</h3>
-                <label className="flex items-center gap-3 text-white/90 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={parallaxEnabled}
-                    onChange={(e) => setParallaxEnabled(e.target.checked)}
-                    className="w-4 h-4 rounded"
-                  />
-                  <span>Enable Parallax</span>
-                </label>
+          <div className={`flex flex-col items-center ${darkMode ? 'text-white/90' : 'text-slate-700'}`}>
+            {gameConfig && (
+              <div className="text-xl font-bold" style={{ fontFamily: 'Perandory, serif' }}>
+                {gameConfig.displayName}
               </div>
             )}
+            <div className="text-sm font-medium" style={{ fontFamily: "'Pokemon DP Pro', monospace" }}>
+              {(() => {
+                const names = [
+                  session.player1_name,
+                  session.player2_name,
+                  session.player3_name,
+                  session.player4_name,
+                ].filter(Boolean);
+                
+                if (names.length === 0) return 'Nuzlocke';
+                if (names.length === 1) return names[0];
+                if (names.length === 2) return `${names[0]} & ${names[1]}`;
+                // 3+ players: "name1, name2 & name3"
+                return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
+              })()}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Dark Mode Toggle */}
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className={`p-2 rounded-xl transition-all ${
+                darkMode
+                  ? 'bg-white/10 text-white/80 hover:bg-white/20'
+                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+              }`}
+              title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+            {/* Settings Menu */}
+            <div className="relative" data-settings-menu>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowSettings(!showSettings);
+                }}
+                className={`p-2 rounded-xl transition-all ${
+                  darkMode
+                    ? 'bg-white/10 text-white/80 hover:bg-white/20'
+                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                }`}
+                title="Settings"
+              >
+                <Settings size={20} />
+              </button>
+              {showSettings && (
+                <div 
+                  className={`absolute top-full right-0 mt-2 backdrop-blur-md rounded-xl shadow-2xl border p-4 min-w-[200px] z-50 ${
+                    darkMode
+                      ? 'bg-black/80 border-white/20'
+                      : 'bg-white/95 border-slate-300/50'
+                  }`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h3 className={`font-semibold mb-3 ${darkMode ? 'text-white' : 'text-slate-800'}`}>Settings</h3>
+                  <div className="space-y-4">
+                    <label className={`flex items-center gap-3 cursor-pointer ${darkMode ? 'text-white/90' : 'text-slate-700'}`}>
+                      <input
+                        type="checkbox"
+                        checked={parallaxEnabled}
+                        onChange={(e) => setParallaxEnabled(e.target.checked)}
+                        className="w-4 h-4 rounded"
+                      />
+                      <span>Enable Parallax</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Parallax Map Container */}
-      <div className="relative h-screen flex items-center justify-center pt-12 pb-4 z-10">
+      <div className="relative h-screen flex flex-col pt-12 pb-4 z-10">
         <div
           data-parallax-container
-          className="relative w-full h-full flex items-center justify-center"
+          className="relative w-full flex-1 flex items-center justify-center"
           style={{
             maxWidth: '100vw',
-            maxHeight: 'calc(100vh - 48px)',
+            minHeight: 0,
           }}
         >
           <div
             data-aspect-container
-            className="relative w-full"
+            className="relative"
             style={{
               aspectRatio: `${mapAspectRatio}`,
+              width: '100%',
               maxWidth: '100%',
               maxHeight: '100%',
+              minWidth: 0,
+              minHeight: 0,
               overflow: 'hidden',
             }}
           >
@@ -856,7 +979,6 @@ export default function RunPage() {
                 cursor: hoveredLocation ? 'crosshair' : 'default',
                 backgroundColor: 'transparent'
               }}
-              onMouseEnter={() => console.log('Mouse entered map area')}
             />
             {/* Back Layer - No movement */}
             <div
@@ -1016,85 +1138,178 @@ export default function RunPage() {
         </div>
       )}
 
-      {/* Add Pair Modal */}
+      {/* Add Encounter Modal */}
       {showAddPairModal && activeTab === 'add-pair' && (
         <div
-          className="absolute z-50 bg-black/80 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 w-96"
+          className={`absolute z-50 backdrop-blur-md rounded-2xl shadow-2xl border w-96 ${
+            darkMode
+              ? 'bg-black/80 border-white/20'
+              : 'bg-white/95 border-slate-300/50'
+          }`}
           style={{
             left: `${modalPosition.x}px`,
             top: `${modalPosition.y}px`,
           }}
         >
           <div
-            className="bg-black/50 text-white p-4 rounded-t-2xl cursor-move flex justify-between items-center border-b border-white/20"
+            className={`p-4 rounded-t-2xl cursor-move flex justify-between items-center border-b ${
+              darkMode
+                ? 'bg-black/50 text-white border-white/20'
+                : 'bg-slate-100 text-slate-800 border-slate-300/50'
+            }`}
             onMouseDown={handleMouseDown}
           >
             <span className="font-bold text-lg">
-              {editingPair ? 'Edit Pair' : 'Add New Pair'}
+              {editingPair ? 'Edit Encounter' : 'Add New Encounter'}
             </span>
-            <button
-              onClick={() => {
-                setShowAddPairModal(false);
-                setActiveTab(null);
-                setEditingPair(null);
-                setPairFormData({ location: '', pokemon1: '', pokemon2: '' });
-              }}
-              className="text-white hover:text-white/80 text-2xl leading-none w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/20 transition-all"
-            >
-              ×
-            </button>
+              <button
+                onClick={() => {
+                  setShowAddPairModal(false);
+                  setActiveTab(null);
+                  setEditingPair(null);
+                  setPairFormData({ location: '', pokemon: [] });
+                }}
+                className={`hover:opacity-80 text-2xl leading-none w-6 h-6 flex items-center justify-center rounded-full transition-all ${
+                  darkMode
+                    ? 'text-white hover:bg-white/20'
+                    : 'text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                ×
+              </button>
           </div>
           <div className="p-6 space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-white/90 mb-2">
-                Location
+              <label className={`block text-sm font-semibold mb-2 ${
+                darkMode ? 'text-white/90' : 'text-slate-700'
+              }`}>
+                Encounter
               </label>
-              <input
-                type="text"
-                placeholder="e.g., Route 31"
-                value={pairFormData.location}
-                onChange={(e) =>
-                  setPairFormData({ ...pairFormData, location: e.target.value })
-                }
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:ring-2 focus:ring-white/30 focus:border-white/30 transition-all outline-none text-white placeholder:text-white/50"
-                required
-              />
+              {gameConfig && (() => {
+                const allEncounters = getAllEncounters(gameConfig.id);
+                const encountersWithPairs = new Set(pairs.map(pair => pair.location));
+                const availableEncounters = allEncounters.filter(encounter => !encountersWithPairs.has(encounter));
+                
+                return (
+                  <div className="relative" ref={encounterDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsEncounterDropdownOpen(!isEncounterDropdownOpen)}
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 transition-all outline-none text-left flex items-center justify-between ${
+                        darkMode
+                          ? 'bg-white/10 border-white/20 focus:ring-white/30 focus:border-white/30 text-white'
+                          : 'bg-white border-slate-300 focus:ring-blue-500 focus:border-blue-500 text-slate-800'
+                      }`}
+                    >
+                      <span className={pairFormData.location ? '' : 'opacity-50'}>
+                        {pairFormData.location || 'Select an encounter...'}
+                      </span>
+                      <svg
+                        className={`w-5 h-5 transition-transform ${isEncounterDropdownOpen ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    
+                    {isEncounterDropdownOpen && (
+                      <div
+                        className={`absolute z-50 w-full mt-1 backdrop-blur-md border rounded-xl shadow-2xl max-h-96 overflow-y-auto ${
+                          darkMode
+                            ? 'bg-black/90 border-white/20'
+                            : 'bg-white border-slate-300'
+                        }`}
+                      >
+                        {availableEncounters.length === 0 ? (
+                          <div className={`p-4 text-center ${darkMode ? 'text-white/50' : 'text-slate-500'}`}>
+                            All encounters have been added
+                          </div>
+                        ) : (
+                          <div className="py-2">
+                            {availableEncounters.map((encounter) => (
+                              <button
+                                key={encounter}
+                                type="button"
+                                onClick={() => {
+                                  const playerCount = session?.player_count || 2;
+                                  setPairFormData({ 
+                                    location: encounter, 
+                                    pokemon: Array(playerCount).fill('')
+                                  });
+                                  setIsEncounterDropdownOpen(false);
+                                }}
+                                className={`w-full px-4 py-2 text-left transition-colors ${
+                                  darkMode
+                                    ? 'hover:bg-white/10 text-white'
+                                    : 'hover:bg-slate-100 text-slate-800'
+                                }`}
+                              >
+                                {encounter}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
-             <div>
-               <PokemonSelector
-                 value={pairFormData.pokemon1}
-                 onChange={(pokemonName) =>
-                   setPairFormData({ ...pairFormData, pokemon1: pokemonName })
-                 }
-                 placeholder="Search Pokemon..."
-                 label={`${session.player1_name}'s Pokemon`}
-               />
-             </div>
-             <div>
-               <PokemonSelector
-                 value={pairFormData.pokemon2}
-                 onChange={(pokemonName) =>
-                   setPairFormData({ ...pairFormData, pokemon2: pokemonName })
-                 }
-                 placeholder="Search Pokemon..."
-                 label={`${session.player2_name}'s Pokemon`}
-               />
-             </div>
+            {session && (() => {
+              const playerNames = [
+                session.player1_name,
+                session.player2_name,
+                session.player3_name,
+                session.player4_name,
+              ].filter(Boolean) as string[];
+              const playerCount = session.player_count || 2;
+              
+              // Ensure pokemon array has correct length
+              const pokemonArray = pairFormData.pokemon.length === playerCount 
+                ? pairFormData.pokemon 
+                : Array(playerCount).fill('');
+              
+              return playerNames.map((playerName, index) => (
+                <div key={index}>
+                  <PokemonSelector
+                    value={pokemonArray[index] || ''}
+                    onChange={(pokemonName) => {
+                      const newPokemon = [...pokemonArray];
+                      newPokemon[index] = pokemonName;
+                      setPairFormData({ ...pairFormData, pokemon: newPokemon });
+                    }}
+                    placeholder="Search Pokemon..."
+                    label={`${playerName}'s Pokemon`}
+                  />
+                </div>
+              ));
+            })()}
             <div className="flex gap-3">
               <button
                 onClick={editingPair ? updatePair : createPair}
-                className="flex-1 bg-white/20 text-white px-4 py-3 rounded-xl font-semibold shadow-lg hover:bg-white/30 transform hover:-translate-y-0.5 transition-all"
+                disabled={!pairFormData.location || !pairFormData.pokemon.every(p => p.trim() !== '')}
+                className={`flex-1 px-4 py-3 rounded-xl font-semibold shadow-lg transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
+                  darkMode
+                    ? 'bg-white/20 text-white hover:bg-white/30'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
               >
-                {editingPair ? 'Update' : 'Add Pair'}
+                {editingPair ? 'Update' : 'Add Encounter'}
               </button>
               <button
                 onClick={() => {
                   setShowAddPairModal(false);
                   setActiveTab(null);
                   setEditingPair(null);
-                  setPairFormData({ location: '', pokemon1: '', pokemon2: '' });
+                  setPairFormData({ location: '', pokemon: [] });
                 }}
-                className="flex-1 bg-white/10 text-white/80 px-4 py-3 rounded-xl font-semibold hover:bg-white/20 transition-all"
+                className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all ${
+                  darkMode
+                    ? 'bg-white/10 text-white/80 hover:bg-white/20'
+                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                }`}
               >
                 Cancel
               </button>
@@ -1106,14 +1321,22 @@ export default function RunPage() {
       {/* Box Tab */}
       {activeTab === 'box' && (
         <div 
-          className="absolute z-50 bg-black/80 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 w-[420px] max-h-[80vh] overflow-hidden flex flex-col"
+          className={`absolute z-50 backdrop-blur-md rounded-2xl shadow-2xl border w-[420px] max-h-[80vh] overflow-hidden flex flex-col ${
+            darkMode
+              ? 'bg-black/80 border-white/20'
+              : 'bg-white/95 border-slate-300/50'
+          }`}
           style={{
             left: `${boxPosition.x}px`,
             top: `${boxPosition.y}px`,
           }}
         >
           <div 
-            className="bg-black/50 text-white p-4 rounded-t-2xl cursor-move flex justify-between items-center border-b border-white/20"
+            className={`p-4 rounded-t-2xl cursor-move flex justify-between items-center border-b ${
+              darkMode
+                ? 'bg-black/50 text-white border-white/20'
+                : 'bg-slate-100 text-slate-800 border-slate-300/50'
+            }`}
             onMouseDown={handleBoxMouseDown}
           >
             <span className="font-bold text-lg">Box</span>
@@ -1121,40 +1344,64 @@ export default function RunPage() {
               onClick={() => {
                 setActiveTab(null);
               }}
-              className="text-white hover:text-white/80 text-2xl leading-none w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/20 transition-all"
+              className={`hover:opacity-80 text-2xl leading-none w-6 h-6 flex items-center justify-center rounded-full transition-all ${
+                darkMode
+                  ? 'text-white hover:bg-white/20'
+                  : 'text-slate-700 hover:bg-slate-200'
+              }`}
             >
               ×
             </button>
           </div>
           <div className="overflow-y-auto p-5">
             {pairs.length === 0 ? (
-              <p className="text-white/50 text-center py-8">No pairs yet</p>
+              <p className={`text-center py-8 ${darkMode ? 'text-white/50' : 'text-slate-500'}`}>No pairs yet</p>
             ) : (
               <div className="space-y-3">
                 {pairs.map((pair) => (
                   <div
                     key={pair.id}
-                    className="bg-white/10 border border-white/20 rounded-xl p-4 flex items-start justify-between hover:bg-white/15 transition-all"
+                    className={`border rounded-xl p-4 flex items-start justify-between transition-all ${
+                      darkMode
+                        ? 'bg-white/10 border-white/20 hover:bg-white/15'
+                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                    }`}
                   >
                     <div className="flex-1">
-                      <p className="font-bold text-white mb-1">{pair.location}</p>
-                      <p className="text-sm text-white/80 mb-2">
-                        {pair.pokemon1 || '?'} & {pair.pokemon2 || '?'}
+                      <p className={`font-bold mb-1 ${darkMode ? 'text-white' : 'text-slate-800'}`}>{pair.location}</p>
+                      <p className={`text-sm mb-2 ${darkMode ? 'text-white/80' : 'text-slate-600'}`}>
+                        {(() => {
+                          // Use pokemon array if available, otherwise fall back to pokemon1/pokemon2
+                          const pokemonArray = pair.pokemon && Array.isArray(pair.pokemon)
+                            ? pair.pokemon
+                            : [pair.pokemon1, pair.pokemon2].filter(Boolean);
+                          return pokemonArray.length > 0
+                            ? pokemonArray.map(p => p || '?').join(' & ')
+                            : '?';
+                        })()}
                       </p>
-                      <p className="text-xs text-white/50">
+                      <p className={`text-xs ${darkMode ? 'text-white/50' : 'text-slate-400'}`}>
                         {new Date(pair.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="flex gap-2 ml-4">
                       <button
                         onClick={() => openEditPair(pair)}
-                        className="bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white/30 transition-all"
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                          darkMode
+                            ? 'bg-white/20 text-white hover:bg-white/30'
+                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        }`}
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => deletePair(pair.id)}
-                        className="bg-red-500/80 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-500 transition-all"
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                          darkMode
+                            ? 'bg-red-500/80 text-white hover:bg-red-500'
+                            : 'bg-red-500 text-white hover:bg-red-600'
+                        }`}
                       >
                         Delete
                       </button>
@@ -1165,6 +1412,31 @@ export default function RunPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Location Detail Window */}
+      {showLocationDetail && selectedLocation && gameConfig && session && (
+        <LocationDetailWindow
+          locationName={selectedLocation}
+          description={gameConfig.locationDescriptions?.[selectedLocation] || null}
+          gameId={gameConfig.id}
+          runId={runId}
+          sessionId={sessionId}
+          playerNames={[
+            session.player1_name,
+            session.player2_name,
+            session.player3_name,
+            session.player4_name,
+          ].filter(Boolean) as string[]}
+          playerCount={session.player_count || 2}
+          darkMode={darkMode}
+          pairs={pairs}
+          onClose={() => {
+            setShowLocationDetail(false);
+            setSelectedLocation(null);
+          }}
+          onAddPair={handleAddPairFromLocation}
+        />
       )}
     </div>
   );

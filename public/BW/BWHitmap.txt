@@ -1,0 +1,90 @@
+const LOCATION_COLORS = [
+  '#FF0000', // Anville Town "A city with a rail yard where trains park for an overhaul."
+  '#00FF00', // Celestial Tower "A tall tower with a large bell whose tones are said to purify the spirit"
+  '#0000FF', // Dragonspiral Tower "The oldest tower in the Unova Region. No one knows its history."
+  '#FFFF00', // Moor of Icirrus "They say water collecting in hollows on the flat land created the moor."
+  '#FF00FF', // Twist Mountain "It has a reputation as a mine littered with valuable ore."
+  '#00FFFF', // Mistralton Cave "A forgotten cave sealed with hints of a legend's presence."
+  '#FF8000', // Chargestone Cave "A cave where electrically charged stones float."
+  '#8000FF', // Cold Storage (no official map description found)
+  '#FF0080', // Relic Castle "Ancient ruins with a glorious history, buried in the sand as time went by."
+  '#0080FF', // Challenger's Cave "Trainers seeking further strength enter the cavern despite the risks."
+  '#80FF00', // Entralink "In the middle of the Unova region, it is a place of mysterious power."
+  '#FF8080', // Lostlorn Forest "It was once known as a place where people got lost for no reason."
+  '#80FF80', // Poké Transfer Lab "A facility to study Pokémon from faraway regions."
+  '#8080FF', // Abundant Shrine "People once lived in this village, and it still feels the same as it did then."
+  '#FFFF80', // Giant Chasm "Legend says that if you approach this big chasm, disasters surely follow."
+  '#FF80FF', // Undella Bay "A world-famous sea of shining waves."
+  '#80FFFF', // Wellspring Cave "The underwater pool grew from rainwater soaking into the ground."
+  '#4000FF', // Dreamyard "A plant site used as a playground for children and Pokémon."
+  '#0040FF', // P2 Laboratory "Team Plasma's secret lab is located on a quiet little island."
+  '#00FF40', // Liberty Garden "An island symbol of hope for a world where humans and Pokémon live free."
+  '#40FF00', // Victory Road "These steep slopes are the last obstacle before the Pokémon League!"
+  '#FF4000', // Pokémon League "Only Trainers who win at all the Pokémon Gyms may challenge it."
+  '#FF4080', // Opelucid City "A convenient city of rapid change, showing no traces of the past." (Black version; White: "A city that respects history and values old things.")
+  '#800000', // Icirrus City "In winter, the city is covered with snow as far as the eye can see."
+  '#008000', // Mistralton City "Vegetables are grown by the runway and transported by cargo plane."
+  '#000080', // Driftveil City "A port town distributing many goods, and a gateway to the Unova region."
+  '#808000', // Nimbasa City "A bustling city of entertainment, with many theme parks."
+  '#800080', // Black City/White Forest (Black: "A modern city of ongoing development that draws people to it." / White: "A place of nature's bounty, it attracts people who long for nature.")
+  '#008080', // Undella Town "A summer retreat with a beach full of people who enjoy summer vacations."
+  '#C00000', // Lacunosa Town "A town where all honor old customs, living as methodically as clockwork."
+  '#00C000', // Castelia City "A big city with skyscrapers piercing the clouds."
+  '#0000C0', // Nacrene City "A city established in restored storehouses built 100 years ago."
+  '#C0C000', // Striaton City "Entry stairs built in memory of a former home in a snowier climate."
+  '#C000C0', // Accumula Town "This town offers great views due to its many hills."
+  '#00C0C0', // Nuvema Town "A rural town whose sea breezes give the sense of something coming."
+  '#C08000', // Route 18 "Some researchers believe it was once contiguous with Desert Resort."
+  '#8000C0', // Route 17 "The fast current here makes it difficult to surf."
+  '#C00080', // Route 1 "A small road by the shore, where you can enjoy the seascape in peace."
+  '#0080C0', // Route 2 "A pastoral road where novice Trainers challenge one another."
+  '#80C000', // Route 3 "A long winding road with lots of ponds and tall grass."
+  '#C0C080', // Skyarrow Bridge "The biggest, longest bridge in Unova has four supporting towers."
+  '#C080C0', // Route 4 "A sandstorm delayed the road construction to connect two cities."
+  '#80C0C0', // Desert Resort "It is a popular place for tourists, but too harsh to be a resort."
+  '#FF2000', // Route 5 "A busy road where performers gather."
+  '#20FF00', // Driftveil Drawbridge "A drawbridge raises and lowers, depending on the ship schedules."
+  '#0020FF', // Route 6 "A road with many trees for nature lovers."
+  '#FF0020', // Route 7 "Raised walkways help you avoid the tall grass."
+  '#2000FF', // Route 8 "It rains a lot here, and the marshy swamp holds many Pokémon."
+  '#FF6000', // Tubeline Bridge "A sturdy steel bridge that won't budge an inch when trains cross it."
+  '#A00000', // Route 9 "This paved road attracts those who love bikes."
+  '#00A000', // Route 10 "A road leading to the Badge Check Gates, chock full of showoffs."
+  '#0000A0', // Route 11 "Limpid streams carved beautiful scenery on this road."
+  '#A0A000', // Village Bridge "An old bridge that settlers of the Unova region built and now live on."
+  '#A000A0', // Route 12 "A place of fun, where it's enjoyable just walking over its gentle hills."
+  '#00A0A0', // Route 13 "This seaside route is famous for sandbars that cross the ocean."
+  '#A06000', // Route 14 "A road covered with mist from the waterfalls."
+  '#6000A0', // Route 15 "A road whose sharp cliffs may scare some people off."
+  '#A00060', // Marvelous Bridge "The most advanced bridge in Unova, designed to soften any impact."
+  '#0060A0', // Route 16 "Many who visit Nimbasa City drop by to take a break."
+  '#FF3000', // Pinwheel Forest "You can go through hollows of fallen trees, too."
+  '#E00000', //
+  '#00E000', //
+  '#0000E0', //
+  '#E0E000', //
+  '#E000E0', //
+  '#00E0E0', //
+  '#E08000', //
+  '#8000E0', //
+  '#E00080', //
+  '#0080E0', //
+  '#80E000', //
+  '#B00000', //
+  '#00B000', //
+  '#0000B0', //
+  '#B0B000', //
+  '#B000B0', //
+  '#00B0B0', //
+  '#B05000', //
+  '#5000B0', //
+  '#B00050', //
+  '#0050B0', //
+  '#50B000', //
+  '#D00000', //
+  '#00D000', //
+  '#0000D0', //
+  '#D0D000', //
+  '#D000D0', //
+  '#00D0D0', //
+];

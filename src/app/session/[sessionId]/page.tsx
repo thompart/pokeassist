@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import type { Session, Run } from '@/types/database';
+import { getGameConfig } from '@/lib/gameConfig';
 
 export default function SessionPage() {
   const params = useParams();
@@ -12,6 +13,7 @@ export default function SessionPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [runs, setRuns] = useState<Run[]>([]);
   const [loading, setLoading] = useState(true);
+  const [gameDisplayName, setGameDisplayName] = useState<string>('');
 
   useEffect(() => {
     if (sessionId) {
@@ -42,6 +44,12 @@ export default function SessionPage() {
 
       setSession(sessionData);
       setRuns(runsData || []);
+      
+      // Get game display name
+      if (sessionData?.game) {
+        const config = getGameConfig(sessionData.game);
+        setGameDisplayName(config?.displayName || sessionData.game);
+      }
     } catch (error) {
       console.error('Error loading session:', error);
       alert('Error loading session');
@@ -123,10 +131,15 @@ export default function SessionPage() {
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200/50 p-8 mb-8">
           <div className="mb-6">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-              {session.game === 'heartgold-soulsilver' ? 'HeartGold & SoulSilver' : session.game}
+              {gameDisplayName || session.game}
             </h1>
             <p className="text-slate-600 text-lg">
-              {session.player1_name} & {session.player2_name}
+              {[
+                session.player1_name,
+                session.player2_name,
+                session.player3_name,
+                session.player4_name,
+              ].filter(Boolean).join(' & ')}
             </p>
           </div>
           <div className="flex items-center gap-4 mb-6">
